@@ -1,0 +1,8 @@
+*.htmlz
+*.html
+*.txt
+
+/images
+/cover.jpg
+/metadata.opf
+/style.css
