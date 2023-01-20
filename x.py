@@ -4,19 +4,19 @@ from bs4 import BeautifulSoup
 
 
 def learner_generator(soup):
-    keyword_seperator = re.compile(r"[/◆]")
-    crosslink_re = re.compile(r'href="(calibre_link[^"]*)"')
+    keyword_seperator = re.compile(r"[/◆\(]")
+    crosslink_re = re.compile(r'href="#(calibre_link[^"]*)"')
+    keywords = []
     ids = {}
-    for heading in soup.findAll('p', class_="calibre_1"):
-        if 'id' in heading.attrs:
-            keyword = keyword_seperator.split(heading.get_text())[0].strip().replace('|', '')
-            ids[heading.attrs['id']] = urllib.parse.quote(keyword, safe='')
+
     def crosslink_repl(match):
-        return "entry://{}".format(ids[match.group(1)])
+        id = match.group(1)
+        return 'href="entry://{}#{}"'.format(ids[id], id)
 
     for heading in soup.findAll('p', class_="calibre_1"):
         # fetch keyword from heading
-        keyword = keyword_seperator.split(heading.get_text())[0].strip().replace('|', '')
+        keyword = ' '.join(keyword_seperator.split(heading.get_text())[
+            0].split()).strip().replace('|', '')
 
         nodes = [heading]
         current_node = heading
@@ -26,14 +26,26 @@ def learner_generator(soup):
                 break
             nodes.append(current_node)
 
-        yield (keyword, crosslink_re.sub(crosslink_repl, "\n".join(map(str, nodes))))
+        keywords.append((keyword, nodes))
+        for node in nodes:
+            if node.name is not None:
+                if 'id' in node.attrs:
+                    ids[node.attrs['id']] = urllib.parse.quote(
+                        keyword, safe='')
+                for anchor in node.findAll(id=True):
+                    ids[anchor.attrs['id']] = urllib.parse.quote(
+                        keyword, safe='')
+
+    for (keyword, nodes) in keywords:
+        yield (keyword, crosslink_re.sub(crosslink_repl, "\r\n".join(map(str, nodes))).strip())
 
 
 with open("index.html") as f:
     soup = BeautifulSoup(f.read(), "html.parser")
 
-for (k, d) in learner_generator(soup):
-    print(k)
-    print('<link rel="stylesheet" type="text/css" href="style.css" />')
-    print(d)
-    print('</>')
+with open("output.txt", "wb") as f:
+    for (k, d) in learner_generator(soup):
+        f.write(k.encode("utf-8"))
+        f.write(b'\r\n<link rel="stylesheet" type="text/css" href="style.css" />\r\n')
+        f.write(d.encode("utf-8"))
+        f.write(b'\r\n</>\r\n')
