@@ -1,6 +1,7 @@
 *.htmlz
 *.html
 *.txt
+*.zip
 
 /images
 /cover.jpg
