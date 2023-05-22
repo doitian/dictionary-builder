@@ -127,11 +127,44 @@ def merriam_websters_collegiate_thesaurus_2_generator(soup):
         yield (keyword, crosslink_re.sub(crosslink_repl, "\r\n".join(map(get_text, nodes))).strip())
 
 
+def merriam_websters_synonyms_and_antonyms_generator(soup):
+    crosslink_re = re.compile(r'href="#(calibre_link[^"]*)"')
+    keywords = []
+    ids = {}
+
+    def crosslink_repl(match):
+        id = match.group(1)
+        return 'href="entry://{}#{}"'.format(ids[id], id)
+
+
+    for node in soup.findAll('div', class_='calibre_13'):
+        heading = node.select_one('.calibre10 .bold')
+        if heading is None:
+            continue
+
+        keyword = heading.get_text().strip()
+
+        if len(keywords) > 0 and keywords[-1][0] == keyword:
+            keywords[-1][1].append(node)
+        else:
+            keywords.append((keyword, [node]))
+
+        if 'id' in node.attrs:
+            ids[node.attrs['id']] = urllib.parse.quote(
+                keyword, safe='')
+        for anchor in node.findAll(id=True):
+            ids[anchor.attrs['id']] = urllib.parse.quote(
+                keyword, safe='')
+
+    for (keyword, nodes) in keywords:
+        yield (keyword, crosslink_re.sub(crosslink_repl, "\r\n".join(map(get_text, nodes))).strip())
+
+
 with open("index.html") as f:
     soup = BeautifulSoup(f.read(), "html.parser")
 
 with open("output.txt", "wb") as f:
-    for (k, d) in merriam_websters_collegiate_thesaurus_2_generator(soup):
+    for (k, d) in merriam_websters_synonyms_and_antonyms_generator(soup):
         f.write(k.encode("utf-8"))
         f.write(b'\r\n<link rel="stylesheet" type="text/css" href="style.css" />\r\n')
         f.write(d.encode("utf-8"))
