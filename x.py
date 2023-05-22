@@ -2,6 +2,8 @@ import re
 import urllib.parse
 from bs4 import BeautifulSoup
 
+# ruff: noqa: E501
+
 
 def get_text(node):
     return str(node).replace("\n", "\r\n").replace('src="images/', 'src="/images/')
@@ -135,7 +137,6 @@ def merriam_websters_synonyms_and_antonyms_generator(soup):
     def crosslink_repl(match):
         id = match.group(1)
         return 'href="entry://{}#{}"'.format(ids[id], id)
-
 
     for node in soup.findAll('div', class_='calibre_13'):
         heading = node.select_one('.calibre10 .bold')
