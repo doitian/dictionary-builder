@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import re
 import urllib.parse
 from bs4 import BeautifulSoup
@@ -161,11 +162,51 @@ def merriam_websters_synonyms_and_antonyms_generator(soup):
         yield (keyword, crosslink_re.sub(crosslink_repl, "\r\n".join(map(get_text, nodes))).strip())
 
 
+def merriam_websters_vocabulary_builder_generator(soup):
+    crosslink_re = re.compile(r'href="#(calibre_link[^"]*)"')
+    keywords = []
+    root = None
+    ids = {}
+
+    def crosslink_repl(match):
+        id = match.group(1)
+        return 'href="entry://{}"'.format(ids[id])
+
+    for node in soup.findAll('p', class_='calibre9'):
+        heading = node.select_one('b.calibre3')
+        if heading is None:
+            continue
+        keyword = heading.get_text().strip()
+
+        idNode = node.previousSibling
+        if idNode is not None and idNode.name == 'hr':
+            idNode = idNode.previousSibling.previousSibling
+            root = keyword
+        elif keyword == 'halcyon':
+            root = None
+        if idNode is None or idNode.name != 'a':
+            continue
+
+        ids[idNode.attrs['id']] = urllib.parse.quote(keyword, safe='')
+
+        keywords.append((keyword, root, [node]))
+
+    for (keyword, root, nodes) in keywords:
+        body = crosslink_re.sub(
+            crosslink_repl, "\r\n".join(map(get_text, nodes))).strip()
+        if root is not None and root != keyword:
+            body = '<p><strong>Root: </strong> ' + \
+                ', '.join(
+                    f'<a href="entry://{r}">{r}</a>' for r in root.split('/')) + '</p>' + body
+        for variant in keyword.split('/'):
+            yield (variant, body)
+
+
 with open("index.html") as f:
     soup = BeautifulSoup(f.read(), "html.parser")
 
 with open("output.txt", "wb") as f:
-    for (k, d) in merriam_websters_synonyms_and_antonyms_generator(soup):
+    for (k, d) in merriam_websters_vocabulary_builder_generator(soup):
         f.write(k.encode("utf-8"))
         f.write(b'\r\n<link rel="stylesheet" type="text/css" href="style.css" />\r\n')
         f.write(d.encode("utf-8"))
